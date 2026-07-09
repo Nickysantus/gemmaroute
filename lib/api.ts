@@ -9,7 +9,7 @@ export type RouteResult = {
   route: "local" | "cloud";
   cost: number;
   costSaved: number;
-  tier: string; // trivial | simple | medium | complex
+  tier: string;
   modelUsed: string;
   response: string;
   sessionId: string;
@@ -24,6 +24,29 @@ export type StatsResult = {
   avgQualityScore: number;
 };
 
+export let backendLive = false;
+function markLive() { backendLive = true; }
+function markDown() { backendLive = false; }
+
+async function callApi<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "X-API-Key": API_KEY,
+      "ngrok-skip-browser-warning": "69420",
+      ...(options.headers || {}),
+    },
+  }).catch(() => null);
+
+  if (!res || !res.ok) {
+    markDown();
+    throw new Error(`API ${path} unreachable`);
+  }
+  markLive();
+  return res.json();
+}
+
 export async function fetchStats(): Promise<StatsResult> {
   try {
     const data = await callApi<any>("/stats", { method: "GET" });
@@ -37,34 +60,16 @@ export async function fetchStats(): Promise<StatsResult> {
       avgQualityScore: Number(data.avg_quality_score ?? 0),
     };
   } catch (err) {
-    // Fallback to rich mock data if backend is offline
-    return { 
-      totalSaved: 89.21, 
-      totalQueries: 142, 
-      localCount: 85, 
-      cloudCount: 57, 
-      avgLatencyMs: 845.2, 
-      avgQualityScore: 0.94 
+    return {
+      totalSaved: 89.21,
+      totalQueries: 142,
+      localCount: 85,
+      cloudCount: 57,
+      avgLatencyMs: 845.2,
+      avgQualityScore: 0.94,
     };
   }
 }
-
-async function callApi<T>(path: string, options: RequestInit = {}): Promise<T> {
-  const res = await fetch(`${API_URL}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      "X-API-Key": API_KEY,
-      ...(options.headers || {}),
-    },
-  }).catch(() => null);
-
-  if (!res || !res.ok) throw new Error(`API ${path} unreachable`);
-  return res.json();
-}
-
-// --- Real endpoints ---
-// Schema confirmed from repo README (jezreal-dev/gemmaroute) on 2026-07-08.
 
 let sessionId = "demo-" + Math.random().toString(36).slice(2, 8);
 
@@ -88,36 +93,20 @@ export async function routeQuery(prompt: string): Promise<RouteResult> {
       sessionId: data.session_id ?? sessionId,
     };
   } catch (err) {
-    // silently falling back to mock data — backend not reachable yet
     return mockRoute(prompt);
   }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ML-Powered Mock Fallback (used only if the real API is unreachable)
-//
-// Instead of brittle keyword matching, this uses a TF-IDF-inspired scoring
-// dictionary derived from open-source prompt-routing datasets (SupraLabs,
-// Kaggle). Every word in the user's prompt is looked up in a pre-computed
-// complexity weight table. The average weight determines the routing tier.
-//
-// Score ranges:  0.0–0.19 → Trivial  |  0.20–0.44 → Simple
-//                0.45–0.64 → Medium   |  0.65–1.0  → Complex
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Complexity weights: 0.0 = trivially simple, 1.0 = maximally complex.
-// Derived from ~400 prompts across SupraLabs/Prompt-Routing-Dataset and
-// Kaggle Prompt Engineering datasets. Only high-signal words are included;
-// unlisted words default to 0.35 (mild-simple bias, matching real-world
-// distribution where ~60% of support queries are simple).
 const COMPLEXITY_WEIGHTS: Record<string, number> = {
-  // ── Trivial / Greeting signals (0.0 – 0.10) ──────────────────────────────
   hi: 0.02, hello: 0.02, hey: 0.02, greetings: 0.03, bye: 0.02,
   goodbye: 0.02, thanks: 0.03, thank: 0.03, ok: 0.05, okay: 0.05,
   yes: 0.05, no: 0.05, sure: 0.05, please: 0.08, morning: 0.05,
   afternoon: 0.05, evening: 0.05, night: 0.05, welcome: 0.04,
 
-  // ── Simple / FAQ signals (0.10 – 0.30) ────────────────────────────────────
   what: 0.12, when: 0.15, where: 0.14, who: 0.12, how: 0.22,
   time: 0.10, today: 0.08, tomorrow: 0.10, open: 0.12, close: 0.12,
   closed: 0.12, hours: 0.12, password: 0.18, reset: 0.18, track: 0.20,
@@ -127,7 +116,6 @@ const COMPLEXITY_WEIGHTS: Record<string, number> = {
   size: 0.12, color: 0.10, change: 0.20, update: 0.22, cancel: 0.25,
   help: 0.15, support: 0.18, account: 0.22, login: 0.18, sign: 0.15,
 
-  // ── Medium / Policy & process signals (0.30 – 0.60) ──────────────────────
   return: 0.38, refund: 0.42, exchange: 0.40, policy: 0.45, warranty: 0.48,
   billing: 0.45, charge: 0.42, payment: 0.40, invoice: 0.45, receipt: 0.38,
   subscription: 0.48, upgrade: 0.42, downgrade: 0.42, transfer: 0.45,
@@ -137,7 +125,6 @@ const COMPLEXITY_WEIGHTS: Record<string, number> = {
   explain: 0.42, describe: 0.40, summarize: 0.45, compare: 0.50,
   difference: 0.42, between: 0.30, recommend: 0.40, suggest: 0.38,
 
-  // ── Complex / Reasoning & analysis signals (0.60 – 1.0) ──────────────────
   analyze: 0.72, analysis: 0.75, evaluate: 0.70, assessment: 0.72,
   strategy: 0.80, architecture: 0.85, design: 0.65, implement: 0.70,
   optimize: 0.75, performance: 0.65, benchmark: 0.72, comprehensive: 0.70,
@@ -151,7 +138,7 @@ const COMPLEXITY_WEIGHTS: Record<string, number> = {
   multi: 0.62, step: 0.45, complex: 0.70, advanced: 0.72, detailed: 0.60,
 };
 
-const DEFAULT_WEIGHT = 0.35; // Unlisted words bias toward simple
+const DEFAULT_WEIGHT = 0.35;
 const STOP_WORDS = new Set([
   "a", "an", "the", "is", "are", "was", "were", "be", "been", "being",
   "have", "has", "had", "do", "does", "did", "will", "would", "shall",
@@ -162,18 +149,10 @@ const STOP_WORDS = new Set([
   "into", "up", "out", "just", "also", "very", "really", "much", "more",
 ]);
 
-/**
- * ML-inspired complexity scorer.
- * Tokenizes the prompt, filters stop words, looks up each remaining word
- * in the pre-computed complexity weight dictionary, and returns the average
- * complexity score in [0.0, 1.0].
- */
 function scoreComplexity(prompt: string): number {
   const tokens = prompt.toLowerCase().replace(/[^a-z0-9\s]/g, "").split(/\s+/).filter(Boolean);
   const meaningful = tokens.filter(t => !STOP_WORDS.has(t));
 
-  // If the prompt is extremely short (1-2 words after filtering), check
-  // if the raw tokens contain a greeting — keeps "Hi!" routing trivial.
   if (meaningful.length === 0) {
     const rawCheck = tokens.some(t => COMPLEXITY_WEIGHTS[t] !== undefined && COMPLEXITY_WEIGHTS[t] < 0.1);
     return rawCheck ? 0.02 : DEFAULT_WEIGHT;
@@ -186,7 +165,6 @@ function scoreComplexity(prompt: string): number {
   return totalWeight / meaningful.length;
 }
 
-// ── Tier-specific mock response templates ────────────────────────────────────
 const MOCK_RESPONSES: Record<string, string[]> = {
   trivial: [
     "Hello! 👋 Welcome to our customer support. How can I help you today?",
@@ -220,14 +198,12 @@ const TIER_MODELS: Record<string, string> = {
 function mockRoute(query: string): RouteResult {
   const score = scoreComplexity(query);
 
-  // Map score → tier
   let tier: string;
   if (score < 0.20)      tier = "trivial";
   else if (score < 0.45) tier = "simple";
   else if (score < 0.65) tier = "medium";
   else                    tier = "complex";
 
-  // Compute realistic cost & savings
   const isLocal = tier === "trivial" || tier === "simple";
   const costTable: Record<string, number> = {
     trivial: 0,
@@ -236,9 +212,8 @@ function mockRoute(query: string): RouteResult {
     complex: 0.015 + Math.random() * 0.010,
   };
   const cost = costTable[tier];
-  const maxCost = 0.09; // cost if everything went to complex tier
+  const maxCost = 0.09;
 
-  // Pick a random response template for variety
   const templates = MOCK_RESPONSES[tier];
   const response = templates[Math.floor(Math.random() * templates.length)];
 
@@ -252,4 +227,3 @@ function mockRoute(query: string): RouteResult {
     sessionId,
   };
 }
-
