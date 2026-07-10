@@ -33,8 +33,9 @@ async function callApi<T>(path: string, options: RequestInit = {}): Promise<T> {
     ...options,
     headers: {
       "Content-Type": "application/json",
+      "Access-Control-Allow-Origin": "*",
       "X-API-Key": API_KEY,
-      "ngrok-skip-browser-warning": "69420",
+      "bypass-tunnel-reminder": "true",
       ...(options.headers || {}),
     },
   }).catch(() => null);
