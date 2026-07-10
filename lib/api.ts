@@ -33,7 +33,6 @@ async function callApi<T>(path: string, options: RequestInit = {}): Promise<T> {
     ...options,
     headers: {
       "Content-Type": "application/json",
-      "Access-Control-Allow-Origin": "*",
       "X-API-Key": API_KEY,
       "bypass-tunnel-reminder": "true",
       ...(options.headers || {}),
