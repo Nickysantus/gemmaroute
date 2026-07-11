@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Zap, Cloud, TrendingDown, Activity, Gauge } from "lucide-react";
+import { Send, Zap, Cloud, TrendingDown, Gauge } from "lucide-react";
 import { routeQuery, fetchStats, type RouteResult } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -104,8 +104,17 @@ export default function Page() {
           <Logo size={26} />
         </div>
         <div className="flex items-center gap-2 text-xs text-zinc-400">
-          <Activity size={14} className={isLive ? "text-emerald-400" : "text-zinc-600"} />
-          {isLive ? "live backend" : "demo mode"}
+          {isLive ? (
+            <span className="relative flex h-2.5 w-2.5">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-400" />
+            </span>
+          ) : (
+            <span className="inline-flex rounded-full h-2.5 w-2.5 bg-red-500" />
+          )}
+          <span className={isLive ? "text-emerald-400 font-medium" : "text-red-400"}>
+            {isLive ? "live backend" : "demo mode"}
+          </span>
         </div>
       </div>
 
