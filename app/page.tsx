@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Send, Zap, Cloud, TrendingDown, Gauge } from "lucide-react";
+import { Send, Zap, Cloud, TrendingDown, Activity, Gauge } from "lucide-react";
 import { routeQuery, fetchStats, type RouteResult } from "@/lib/api";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
